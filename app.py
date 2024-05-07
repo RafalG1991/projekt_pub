@@ -29,7 +29,6 @@ def getTabs():
 @cross_origin()
 def getAvailableTabs(id):
     rv = Lounge.getAvailableTables(mysql, id)
-    print(rv)
     return {
         "tables": rv
     }
@@ -42,6 +41,45 @@ def openNewOrder():
     tableNumber = request_json.get('tableNumber')
     customersNumber = request_json.get('customersNumber')
     Orders.openOrder(mysql, tableNumber, customersNumber)
+    return {
+        "status": "ok"
+    }
+@app.route("/order/close", methods = ['POST'])
+@cross_origin()
+def closeThisOrder():
+    request_json = request.get_json()
+    tableNumber = request_json.get('tableNumber')
+    rev = Orders.closeOrder(mysql, tableNumber)
+    return {
+        "status": "ok",
+        "price": rev.price
+    }
+
+
+@app.route("/order/menu")
+@cross_origin()
+def openMenuList():
+    rv = Orders.list_menu(mysql)
+    return {
+        "menu": rv
+    }
+
+@app.route("/order/show/<int:table>")
+@cross_origin()
+def showOrder(table):
+    rv = Orders.show_order(mysql, table)
+    return {
+        "order": rv
+    }
+
+@app.route("/order/add", methods = ['POST'])
+@cross_origin()
+def addToOrder():
+    request_json = request.get_json()
+    id = request_json.get('id')
+    choice = request_json.get('choice')
+    quantity = request_json.get('quantity')
+    rev = Orders.add_product(mysql, choice, quantity, id)
     return {
         "status": "ok"
     }
