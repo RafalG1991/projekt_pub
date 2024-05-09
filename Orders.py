@@ -37,7 +37,7 @@ class Orders():
     @staticmethod
     def list_menu(mysql):
         cursor = mysql.connection.cursor()
-        cursor.execute("SELECT drink_id, drink_name, price FROM drinks;")
+        cursor.execute("SELECT drink_id, drink_name, price, description FROM drinks;")
         res = cursor.fetchall()
         cursor.close()
         return res
@@ -75,6 +75,6 @@ class Orders():
         for i in range(2, len(filtered_data) - 2, 2):
             cursor.execute(f"UPDATE ingredients SET quantity = quantity - {filtered_data[i+1]*quantity} WHERE ingredient_name = '{filtered_data[i]}';")
             mysql.connection.commit()
-        cursor.execute(f"UPDATE pub_tables SET bill = bill + {filtered_data[-1] * quantity} WHERE id = {id};")
+        cursor.execute(f"UPDATE pub_tables SET bill = bill + {filtered_data[-2] * quantity} WHERE id = {id};")
         mysql.connection.commit()
         cursor.close()
