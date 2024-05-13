@@ -8,7 +8,7 @@ from Orders import Orders
 app = Flask(__name__)
 
 app.config['CORS_HEADERS'] = 'Content-Type'
-app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_HOST'] = '127.0.0.1'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = ''
 app.config['MYSQL_DB'] = 'pub_db'
