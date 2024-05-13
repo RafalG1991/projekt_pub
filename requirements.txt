@@ -1,2 +1,4 @@
 Flask
 Gunicorn
+flask_cors
+flask_mysqldb
