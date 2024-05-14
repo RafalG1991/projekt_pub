@@ -1,6 +1,10 @@
+import os
 from flask import Flask, request
 from flask_cors import CORS, cross_origin
 from flask_mysqldb import MySQL
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from Lounge import Lounge
 from Orders import Orders
@@ -8,10 +12,10 @@ from Orders import Orders
 app = Flask(__name__)
 
 app.config['CORS_HEADERS'] = 'Content-Type'
-app.config['MYSQL_HOST'] = '127.0.0.1'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = ''
-app.config['MYSQL_DB'] = 'pub_db'
+app.config['MYSQL_HOST'] = os.getenv("HOST")
+app.config['MYSQL_USER'] = os.getenv("USER")
+app.config['MYSQL_PASSWORD'] = os.getenv("PASSWORD")
+app.config['MYSQL_DB'] = os.getenv("DATABASE")
  
 mysql = MySQL(app)
 CORS(app)
