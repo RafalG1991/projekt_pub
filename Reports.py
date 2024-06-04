@@ -1,19 +1,29 @@
-from DataBase import DataBase
-
-
-class Report(DataBase):
+class Report():
     def __init__(self):
         super().__init__()
 
-    def inventory_report(self):
-        result = self.data_base_interaction("SELECT * FROM ingredients")
-        for row in result:
-            print(row)
+    @staticmethod
+    def inventory_report(mysql):
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT * FROM ingredients")
+        res = cursor.fetchall()
+        cursor.close()
+        return res
+    
+    @staticmethod
+    def orders_report(mysql):
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT * FROM pub_tables")
+        res = cursor.fetchall()
+        cursor.close()
+        return res
 
-    def orders_report(self):
-        result = self.data_base_interaction("SELECT * FROM pub_tables")
-        for row in result:
-            print(row)
+    @staticmethod
+    def add_ingredient(mysql, quantity, id):
+        cursor = mysql.connection.cursor()
+        cursor.execute(f"UPDATE ingredients SET quantity = quantity + {quantity} WHERE ingredient_id = '{id}';")
+        mysql.connection.commit()
+        cursor.close()
 
 
 
