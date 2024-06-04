@@ -8,6 +8,7 @@ load_dotenv()
 
 from Lounge import Lounge
 from Orders import Orders
+from Reports import Report
  
 app = Flask(__name__)
 
@@ -84,6 +85,35 @@ def addToOrder():
     choice = request_json.get('choice')
     quantity = request_json.get('quantity')
     rev = Orders.add_product(mysql, choice, quantity, id)
+    return {
+        "status": "ok"
+    }
+
+# Report routes
+
+@app.route("/report/inventory")
+@cross_origin()
+def getInv():
+    rv = Report.inventory_report(mysql)
+    return {
+        "inv": rv
+    }
+
+@app.route("/report/orders")
+@cross_origin()
+def getOrd():
+    rv = Report.orders_report(mysql)
+    return {
+        "orders": rv
+    }
+
+@app.route("/report/add", methods = ['POST'])
+@cross_origin()
+def addIngr():
+    request_json = request.get_json()
+    id = request_json.get('id')
+    quantity = request_json.get('quantity')
+    rev = Report.add_ingredient(mysql, quantity, id)
     return {
         "status": "ok"
     }
