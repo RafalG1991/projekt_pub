@@ -84,9 +84,9 @@ def addToOrder():
     id = request_json.get('id')
     choice = request_json.get('choice')
     quantity = request_json.get('quantity')
-    rev = Orders.add_product(mysql, choice, quantity, id)
+    rv = Orders.add_product(mysql, choice, quantity, id)
     return {
-        "status": "ok"
+        "added": rv
     }
 
 # Report routes

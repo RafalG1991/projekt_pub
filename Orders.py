@@ -62,6 +62,14 @@ class Orders():
         for row in result:
             name = row[1]
 
+        filtered_data = [item for item in result[0] if item is not None]
+        for i in range(2, len(filtered_data) - 2, 2):
+            cursor.execute(f"SELECT quantity FROM ingredients WHERE ingredient_name = '{filtered_data[i]}';")
+            q = cursor.fetchall()
+            if filtered_data[i+1]*quantity > q[0][0]:
+                cursor.close()
+                return 'error'
+
         for i in range(quantity):
             cursor.execute(f"""UPDATE pub_tables
                 SET ordered_items =
@@ -71,10 +79,11 @@ class Orders():
                     END
                 WHERE id = {id}""")
             mysql.connection.commit()
-        filtered_data = [item for item in result[0] if item is not None]
+                
         for i in range(2, len(filtered_data) - 2, 2):
             cursor.execute(f"UPDATE ingredients SET quantity = quantity - {filtered_data[i+1]*quantity} WHERE ingredient_name = '{filtered_data[i]}';")
             mysql.connection.commit()
         cursor.execute(f"UPDATE pub_tables SET bill = bill + {filtered_data[-2] * quantity} WHERE id = {id};")
         mysql.connection.commit()
         cursor.close()
+        return 'ok'
