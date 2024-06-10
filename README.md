@@ -28,14 +28,13 @@ Aplikacja serwerowa podzielona jest na następujące klasy i dostępne w nich me
 - add_ingredient – dodawanie składników do stanu magazynowego
 
 
-##API
+## API
 ### Lounge
 #### `GET /lounge`
 <p> 
   Pobieranie listy wszystkich stolików w Pubie
 </p>
 
-### Lounge
 #### `GET /lounge/available/<int:id>`
 <p> 
   Pobieranie listy dostępnych stolików w Pubie o zadanej pojemności
