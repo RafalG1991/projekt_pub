@@ -45,14 +45,12 @@ class Report():
             cursor.close()
             return False
         cursor.execute("UPDATE ingredients SET stock_quantity = stock_quantity + %s WHERE ingredient_id = %s", (quantity, ingredient_id))
-        mysql.connection.commit()
-        
         # po uzupełnieniu konkretnego składnika:
         cursor.execute("""
             UPDATE ingredients
             SET low_stock_notified = CASE WHEN stock_quantity >= reorder_level THEN 0 ELSE low_stock_notified END
             WHERE ingredient_id = %s
         """, (ingredient_id,))
-
+        mysql.connection.commit()
         cursor.close()
         return True
