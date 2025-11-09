@@ -6,3 +6,4 @@ python-dotenv
 Flask-JWT-Extended
 Werkzeug
 PyMySQL
+flask_mail
