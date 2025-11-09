@@ -6,10 +6,12 @@ from flask_cors import CORS
 from flask_mysqldb import MySQL
 from flask_jwt_extended import JWTManager
 from flask import jsonify
+from flask_mail import Mail
 
 
 mysql = MySQL()
 jwt = JWTManager()
+mail = Mail()
 
 def init_extensions(app: Flask):
     # --- CORS ---
@@ -74,3 +76,14 @@ def init_extensions(app: Flask):
         row = cur.fetchone()
         cur.close()
         return bool(row)
+    
+    # --- MAIL ---
+    app.config["MAIL_SERVER"]   = os.getenv("MAIL_SERVER", "localhost")
+    app.config["MAIL_PORT"]     = int(os.getenv("MAIL_PORT", "25"))
+    app.config["MAIL_USE_TLS"]  = os.getenv("MAIL_USE_TLS", "false").lower() == "true"
+    app.config["MAIL_USE_SSL"]  = os.getenv("MAIL_USE_SSL", "false").lower() == "true"
+    app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+    app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_SENDER", "no-reply@localhost")
+
+    mail.init_app(app)
