@@ -78,12 +78,13 @@ def init_extensions(app: Flask):
         return bool(row)
     
     # --- MAIL ---
-    app.config["MAIL_SERVER"]   = os.getenv("MAIL_SERVER", "localhost")
-    app.config["MAIL_PORT"]     = int(os.getenv("MAIL_PORT", "25"))
+    app.config["MAIL_SERVER"]   = os.getenv("MAIL_SERVER", "127.0.0.1")
+    app.config["MAIL_PORT"]     = int(os.getenv("MAIL_PORT", "2500"))
     app.config["MAIL_USE_TLS"]  = os.getenv("MAIL_USE_TLS", "false").lower() == "true"
     app.config["MAIL_USE_SSL"]  = os.getenv("MAIL_USE_SSL", "false").lower() == "true"
-    app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-    app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+    app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME") or None
+    app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD") or None
     app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_SENDER", "no-reply@localhost")
+    app.config["MAIL_SUPPRESS_SEND"] = os.getenv("MAIL_SUPPRESS_SEND", "false").lower() == "true"
 
     mail.init_app(app)
