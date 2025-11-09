@@ -20,12 +20,13 @@ class Report():
         """
         cursor = mysql.connection.cursor()
         cursor.execute("""
-            SELECT o.order_id, o.table_id, o.order_time, o.status,
+            SELECT o.order_id, o.table_id, o.order_time, o.status, o.customers_number, u.name AS employee,
                    IFNULL(SUM(oi.quantity * d.price), 0) AS total,
                        GROUP_CONCAT(CONCAT(d.drink_name, ' x', oi.quantity) SEPARATOR ', ') AS items
             FROM orders o
             LEFT JOIN order_items oi ON o.order_id = oi.order_id
             LEFT JOIN drinks d ON oi.drink_id = d.drink_id
+            LEFT JOIN users u ON o.employee_id = u.user_id
             GROUP BY o.order_id
             ORDER BY o.order_time DESC;
         """)
@@ -45,5 +46,13 @@ class Report():
             return False
         cursor.execute("UPDATE ingredients SET stock_quantity = stock_quantity + %s WHERE ingredient_id = %s", (quantity, ingredient_id))
         mysql.connection.commit()
+        
+        # po uzupełnieniu konkretnego składnika:
+        cursor.execute("""
+            UPDATE ingredients
+            SET low_stock_notified = CASE WHEN stock_quantity >= reorder_level THEN 0 ELSE low_stock_notified END
+            WHERE ingredient_id = %s
+        """, (ingredient_id,))
+
         cursor.close()
         return True
