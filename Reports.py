@@ -1,3 +1,6 @@
+from flask import jsonify
+from mailer import send_email
+
 class Report():
     def __init__(self):
         super().__init__()
@@ -54,3 +57,54 @@ class Report():
         mysql.connection.commit()
         cursor.close()
         return True
+    
+    @staticmethod
+    def checkAllStocks(mysql):
+        cursor = mysql.connection.cursor()
+        # weź wszystkie poniżej progu i nie zgłoszone
+        cursor.execute("""
+            SELECT ingredient_id, ingredient_name, stock_quantity, reorder_level
+            FROM ingredients
+            WHERE stock_quantity < reorder_level AND low_stock_notified = 0
+        """)
+        low = cursor.fetchall()
+
+        if not low:
+            cursor.close()
+            return jsonify({"ok": True, "notified": 0})
+
+        # zbierz adminów
+        cursor.execute("SELECT email FROM users WHERE role='admin' AND email IS NOT NULL")
+        admins = cursor.fetchall()
+        recipients = [ (a["email"] if isinstance(a, dict) else a[0]) for a in admins or [] ]
+
+        # wyślij zbiorczy mail
+        lines = []
+        ids = []
+        for r in low:
+            name = r["ingredient_name"] if isinstance(r, dict) else r[1]
+            qty  = r["stock_quantity"]  if isinstance(r, dict) else r[2]
+            thr  = r["reorder_level"]   if isinstance(r, dict) else r[3]
+            iid  = r["ingredient_id"]   if isinstance(r, dict) else r[0]
+            ids.append(iid)
+            lines.append(f"- {name}: {qty} (próg {thr})")
+
+        subject = "[Pub Manager] Składniki poniżej progu"
+        body = "Poniższe składniki spadły poniżej progu:\n\n" + "\n".join(lines)
+        try:
+            send_email(subject, recipients, body)
+        except Exception as e:
+            print("MAIL ERROR:", e)
+
+        # ustaw flagi, aby nie spamować
+        if ids:
+            fmt = ",".join(["%s"] * len(ids))
+            cursor.execute(f"""
+                UPDATE ingredients
+                SET low_stock_notified = 1, last_notified_at = NOW()
+                WHERE ingredient_id IN ({fmt})
+            """, tuple(ids))
+            mysql.connection.commit()
+
+        cursor.close()
+        return jsonify({"ok": True, "notified": len(ids)})
