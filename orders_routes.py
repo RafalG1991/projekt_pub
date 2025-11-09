@@ -9,12 +9,13 @@ orders_bp = Blueprint("orders", __name__, url_prefix="/order")
 @orders_bp.post("/open")
 @jwt_required()
 def open_order():
-    # JSON: { tableNumber: int, customersNumber: int }
+    # JSON: { tableNumber: int, customersNumber: int , employeeId: int}
     data = request.get_json() or {}
     table_number = int(data.get("tableNumber", 0))
     customers = int(data.get("customersNumber", 0))
+    employeeId = int(data.get("employeeId", 0))
 
-    ok, msg = Orders.openOrder(mysql, table_number, customers)  # <-- nazwa i argumenty jak w Orders.py
+    ok, msg = Orders.openOrder(mysql, table_number, customers, employeeId)  # <-- nazwa i argumenty jak w Orders.py
     return jsonify({"ok": bool(ok), "message": msg})
 
 @orders_bp.post("/close")

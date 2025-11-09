@@ -14,7 +14,7 @@ class Orders:
         super().__init__()
 
     @staticmethod
-    def openOrder(mysql, tableNumber, customersNumber):
+    def openOrder(mysql, tableNumber, customersNumber, employeeId):
         """
         Otwiera nowe zamówienie dla stolika o podanym table_number:
         - sprawdza status stolika (FREE/BUSY)
@@ -50,10 +50,10 @@ class Orders:
         # Utwórz zamówienie
         cursor.execute(
             """
-            INSERT INTO orders (table_id, status, customers_number)
-            VALUES (%s, 'OPEN', %s)
+            INSERT INTO orders (table_id, status, customers_number, employee_id)
+            VALUES (%s, 'OPEN', %s, %s)
             """,
-            (table_id, customersNumber)
+            (table_id, customersNumber, employeeId)
         )
 
         mysql.connection.commit()
@@ -268,6 +268,54 @@ class Orders:
                 "UPDATE ingredients SET stock_quantity = stock_quantity - %s WHERE ingredient_id = %s",
                 (required, ingr_id)
             )
+
+        # 4b) Po aktualizacji – sprawdź próg i ewentualnie powiadom adminów
+        for ingr in ingredients or []:
+            ingr_id = _get(ingr, "ingredient_id", 0)
+            # pobierz bieżący stan i flagę
+            cursor.execute("""
+                SELECT ingredient_name, stock_quantity, reorder_level, low_stock_notified
+                FROM ingredients
+                WHERE ingredient_id = %s
+            """, (ingr_id,))
+            row = cursor.fetchone()
+            if not row:
+                continue
+
+            name = _get(row, "ingredient_name", 0)
+            qty = float(_get(row, "stock_quantity", 1) or 0)
+            threshold = float(_get(row, "reorder_level", 2) or 0)
+            already = int(_get(row, "low_stock_notified", 3) or 0)
+
+            if qty < threshold and not already:
+                # zbierz e-maile adminów
+                cursor.execute("SELECT email FROM users WHERE role='admin' AND email IS NOT NULL")
+                admins = cursor.fetchall()
+                recipients = []
+                for a in admins or []:
+                    recipients.append(_get(a, "email", 0))
+
+                # wyślij mail
+                try:
+                    from mailer import send_email
+                    subject = f"[Pub Manager] Niski stan: {name}"
+                    body = (
+                        f"Składnik: {name}\n"
+                        f"Pozostało: {qty}\n"
+                        f"Próg (reorder_level): {threshold}\n\n"
+                        f"Zalecenie: uzupełnij zapas."
+                    )
+                    send_email(subject, recipients, body)
+                except Exception as e:
+                    # nie blokuj transakcji przez e-mail
+                    print("MAIL ERROR:", e)
+
+                # ustaw flagę, aby nie spamować
+                cursor.execute("""
+                    UPDATE ingredients
+                    SET low_stock_notified = 1, last_notified_at = NOW()
+                    WHERE ingredient_id = %s
+                """, (ingr_id,))
 
         # 5) Dodaj/aktualizuj pozycję zamówienia
         cursor.execute(
