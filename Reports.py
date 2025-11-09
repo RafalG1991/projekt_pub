@@ -71,7 +71,7 @@ class Report():
 
         if not low:
             cursor.close()
-            return jsonify({"ok": True, "notified": 0})
+            return {"ok": True, "notified": 0}
 
         # zbierz adminów
         cursor.execute("SELECT email FROM users WHERE role='admin' AND email IS NOT NULL")
@@ -107,4 +107,4 @@ class Report():
             mysql.connection.commit()
 
         cursor.close()
-        return jsonify({"ok": True, "notified": len(ids)})
+        return {"ok": True, "notified": len(ids)}

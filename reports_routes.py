@@ -33,9 +33,9 @@ def add_ingr():
     ok = Report.add_ingredient(mysql, qty, ing_id)
     return jsonify({"status": "ok" if ok else "error"})
 
-@reports_bp.post("/recheck")
+@reports_bp.get("/recheck")
 @jwt_required()
 @role_required("admin")
 def recheck_all():
     res = Report.checkAllStocks(mysql)
-    return jsonify({"orders": res})
+    return {"notified": res}
