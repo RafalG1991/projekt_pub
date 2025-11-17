@@ -181,3 +181,27 @@ def reject_order():
         "orderId": order_id,
         "tableId": table_id
     }), 200
+
+@orders_bp.get("/client/status/<int:tableNumber>")
+@jwt_required(optional=True)  # klient bez logowania
+def client_order_status(tableNumber):
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        SELECT o.order_id, o.status
+        FROM orders o
+        JOIN pub_tables t ON t.table_id = o.table_id
+        WHERE t.table_number = %s
+        ORDER BY o.order_time DESC
+        LIMIT 1
+    """, (tableNumber,))
+    row = cursor.fetchone()
+    cursor.close()
+
+    if not row:
+        return jsonify({"hasOrder": False}), 404
+
+    return jsonify({
+        "hasOrder": True,
+        "orderId": row["order_id"],
+        "status": row["status"],   # 'PENDING', 'OPEN', 'REJECTED', ...
+    }), 200
