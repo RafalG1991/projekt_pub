@@ -17,7 +17,7 @@ class Orders:
     def openOrder(mysql, tableNumber, customersNumber, employeeId):
         """
         Otwiera nowe zamówienie dla stolika o podanym table_number:
-        - sprawdza status stolika (FREE/BUSY)
+        - sprawdza status stolika (FREE/BUSY/PENDING)
         - ustawia pub_tables.table_status = 'BUSY'
         - tworzy wpis w orders (status OPEN)
         Zwraca (True, msg) lub (False, msg)
@@ -40,6 +40,10 @@ class Orders:
         if table_status == 'BUSY':
             cursor.close()
             return False, "Table already BUSY"
+        
+        if table_status == 'PENDING':
+            cursor.close()
+            return False, "Table have PENDING status"
 
         # Ustaw stolik na BUSY
         cursor.execute(
@@ -59,6 +63,62 @@ class Orders:
         mysql.connection.commit()
         cursor.close()
         return True, "Order opened"
+    
+    @staticmethod
+    def openClientOrder(mysql, tableNumber, customersNumber):
+        """
+        Otwiera nowe zamówienie dla stolika o podanym table_number:
+        - sprawdza status stolika (FREE/BUSY/PENDING)
+        - ustawia pub_tables.table_status = 'PENDING'
+        - tworzy wpis w orders (status PENDING)
+        Zwraca (True, dict) lub (False, dict)
+        """
+        cursor = mysql.connection.cursor()
+
+        cursor.execute(
+            "SELECT table_id, table_status FROM pub_tables WHERE table_number=%s",
+            (tableNumber,)
+        )
+        t = cursor.fetchone()
+        if not t:
+            cursor.close()
+            return False, {"error": "table not found"}
+
+        table_id = _get(t, "table_id", 0)
+        table_status = _get(t, "table_status", 1)
+
+        if table_status == 'BUSY':
+            cursor.close()
+            return False, {"error": "Table already BUSY"}
+
+        if table_status == 'PENDING':
+            cursor.close()
+            return False, {"error": "Table have PENDING status"}
+
+        # Ustaw stolik na PENDING
+        cursor.execute(
+            "UPDATE pub_tables SET table_status='PENDING' WHERE table_id=%s",
+            (table_id,)
+        )
+
+        # Utwórz zamówienie (PENDING)
+        cursor.execute(
+            """
+            INSERT INTO orders (table_id, status, customers_number)
+            VALUES (%s, 'PENDING', %s)
+            """,
+            (table_id, customersNumber)
+        )
+        order_id = cursor.lastrowid
+
+        mysql.connection.commit()
+        cursor.close()
+        return True, {
+            "message": "Order pending",
+            "order_id": order_id,
+            "table_id": table_id,
+            "status": "PENDING",
+        }
 
     @staticmethod
     def close_order(mysql, table_number):
