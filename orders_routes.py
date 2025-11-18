@@ -1,6 +1,7 @@
 # orders_routes.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from datetime import datetime
 from extensions import mysql, socketio
 from Orders import Orders
 
@@ -31,9 +32,15 @@ def open_client_order():
     ok, payload = Orders.openClientOrder(mysql, table_number, customers_number)
 
     if not ok:
-        # rozróżnij 404 dla nieistniejącego stolika, reszta 409-conflict
-        if payload.get("error") == "table not found":
+        err = payload.get("error") if isinstance(payload, dict) else str(payload)
+
+        if err == "table not found":
             return jsonify(payload), 404
+        if err == "too many guests":
+            # 409 Conflict – biznesowo: nie spełnia warunków stolika
+            return jsonify(payload), 409
+
+        # inne błędy (table busy/pending itp.)
         return jsonify(payload), 409
 
      # payload zawiera m.in. table_id i status='PENDING'
@@ -248,3 +255,44 @@ def client_order_status(tableNumber):
         "orderId": row["order_id"],
         "status": row["status"],   # 'PENDING', 'OPEN', 'REJECTED', ...
     }), 200
+
+@orders_bp.post("/client/signal")
+@jwt_required(optional=True)
+def client_signal():
+    """
+    JSON: { tableNumber: int, type: "WAITER"|"CUTLERY"|"CLEANING" }
+    Nic nie zapisuje w DB, tylko wysyła sygnał przez Socket.IO.
+    """
+    data = request.get_json() or {}
+    table_number = data.get("tableNumber")
+    signal_type = (data.get("type") or "").upper()
+
+    if not table_number or signal_type not in ("WAITER", "CUTLERY", "CLEANING"):
+        return jsonify({"error": "invalid payload"}), 400
+
+    # znajdź table_id (potrzebne frontendowi)
+    cursor = mysql.connection.cursor()
+    cursor.execute(
+        "SELECT table_id FROM pub_tables WHERE table_number=%s",
+        (table_number,)
+    )
+    row = cursor.fetchone()
+    cursor.close()
+
+    if not row:
+        return jsonify({"error": "table not found"}), 404
+
+    table_id = row["table_id"]
+
+    # wyślij lekki event przez socket
+    socketio.emit(
+        "table_signal",
+        {
+            "table_id": table_id,
+            "table_number": table_number,
+            "type": signal_type,
+            "ts": datetime.utcnow().isoformat(),
+        },
+    )
+
+    return jsonify({"ok": True}), 200

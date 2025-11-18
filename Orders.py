@@ -76,7 +76,7 @@ class Orders:
         cursor = mysql.connection.cursor()
 
         cursor.execute(
-            "SELECT table_id, table_status FROM pub_tables WHERE table_number=%s",
+            "SELECT table_id, table_status, capacity FROM pub_tables WHERE table_number=%s",
             (tableNumber,)
         )
         t = cursor.fetchone()
@@ -86,6 +86,17 @@ class Orders:
 
         table_id = _get(t, "table_id", 0)
         table_status = _get(t, "table_status", 1)
+        capacity = int(_get(t, "capacity", 2) or 0)
+        customersNumber = int(customersNumber or 0)
+
+        # za dużo gości na stolik
+        if customersNumber > capacity:
+            cursor.close()
+            return False, {
+                "error": "too many guests",
+                "max_capacity": capacity,
+                "requested": customersNumber,
+            }
 
         if table_status == 'BUSY':
             cursor.close()
