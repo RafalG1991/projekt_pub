@@ -7,3 +7,5 @@ Flask-JWT-Extended
 Werkzeug
 PyMySQL
 flask_mail
+flask-socketio
+eventlet

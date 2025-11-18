@@ -3,11 +3,12 @@ import os
 from flask import Flask
 from dotenv import load_dotenv
 
-from extensions import init_extensions
+from extensions import init_extensions, socketio
 from auth_routes import auth_bp
 from orders_routes import orders_bp
 from lounges_routes import lounge_bp
 from reports_routes import reports_bp
+
 
 load_dotenv()
 
@@ -29,4 +30,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True)

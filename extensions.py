@@ -7,11 +7,15 @@ from flask_mysqldb import MySQL
 from flask_jwt_extended import JWTManager
 from flask import jsonify
 from flask_mail import Mail
+from flask_socketio import SocketIO
 
 
 mysql = MySQL()
 jwt = JWTManager()
 mail = Mail()
+
+socketio = SocketIO(cors_allowed_origins="*")
+
 
 def init_extensions(app: Flask):
     # --- CORS ---

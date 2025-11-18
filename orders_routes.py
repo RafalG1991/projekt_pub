@@ -1,7 +1,7 @@
 # orders_routes.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from extensions import mysql
+from extensions import mysql, socketio
 from Orders import Orders
 
 orders_bp = Blueprint("orders", __name__, url_prefix="/order")
@@ -35,6 +35,19 @@ def open_client_order():
         if payload.get("error") == "table not found":
             return jsonify(payload), 404
         return jsonify(payload), 409
+
+     # payload zawiera m.in. table_id i status='PENDING'
+    table_id = payload.get("table_id")
+
+    if table_id is not None:
+        socketio.emit(
+            "table_updated",
+            {
+                "table_id": table_id,
+                "table_status": "PENDING",
+            },
+            namespace="/tables",
+        )
 
     return jsonify(payload), 201
 
@@ -87,50 +100,69 @@ def add_item():
 def confirm_order():
     data = request.get_json() or {}
     table_id = data.get("tableId")
-    employee_id = int(data.get("employeeId", 0))
-
-    if table_id is None:
-        return jsonify({"error": "tableId required"}), 400
+    order_id = data.get("orderId")
+    employeeId = int(data.get("employeeId", 0))
 
     cursor = mysql.connection.cursor()
 
-    # 1) znajdź PENDING zamówienie dla danego stolika
+    if order_id is None and table_id is not None:
+        cursor.execute("""
+            SELECT order_id
+            FROM orders
+            WHERE table_id = %s AND status = 'PENDING'
+            ORDER BY order_time DESC
+            LIMIT 1
+        """, (table_id,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            return jsonify({"error": "no pending order for table"}), 404
+
+        order_id = row["order_id"]
+
+    if order_id is None:
+        cursor.close()
+        return jsonify({"error": "orderId or tableId required"}), 400
+
     cursor.execute("""
         SELECT o.order_id, o.table_id, t.table_number
         FROM orders o
         JOIN pub_tables t ON t.table_id = o.table_id
-        WHERE o.table_id = %s AND o.status = 'PENDING'
-        ORDER BY o.order_time DESC
+        WHERE o.order_id = %s AND o.status = 'PENDING'
         LIMIT 1
-    """, (table_id,))
+    """, (order_id,))
     row = cursor.fetchone()
     if not row:
         cursor.close()
-        return jsonify({"error": "pending order not found for this table"}), 404
+        return jsonify({"error": "pending order not found"}), 404
 
-    order_id = row["order_id"]
-    table_id = row["table_id"]  # dla pewności, że mamy właściwe id
+    table_id = row["table_id"]
+    table_number = row["table_number"]
 
-    # 2) potwierdź zamówienie i przypisz pracownika
     cursor.execute(
         "UPDATE orders SET status = 'OPEN', employee_id = %s WHERE order_id = %s",
-        (employee_id, order_id),
+        (employeeId, order_id)
     )
-
-    # 3) ustaw stolik na BUSY
     cursor.execute(
         "UPDATE pub_tables SET table_status = 'BUSY' WHERE table_id = %s",
-        (table_id,),
+        (table_id,)
     )
 
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({
-        "confirmed": True,
-        "orderId": order_id,
-        "tableId": table_id,
-    }), 200
+    # TU emit
+    socketio.emit(
+        "table_updated",
+        {
+            "table_id": table_id,
+            "table_number": table_number,
+            "table_status": "BUSY",
+        },
+        namespace="/tables",
+    )
+
+    return jsonify({"confirmed": True, "orderId": order_id}), 200
 
 
 @orders_bp.post("/reject")
@@ -138,49 +170,62 @@ def confirm_order():
 def reject_order():
     data = request.get_json() or {}
     table_id = data.get("tableId")
-    employee_id = int(data.get("employeeId", 0))
-
-    if table_id is None:
-        return jsonify({"error": "tableId required"}), 400
+    order_id = data.get("orderId")
 
     cursor = mysql.connection.cursor()
 
-    # 1) znajdź PENDING zamówienie dla stolika
-    cursor.execute("""
-        SELECT order_id
-        FROM orders
-        WHERE table_id = %s AND status = 'PENDING'
-        ORDER BY order_time DESC
-        LIMIT 1
-    """, (table_id,))
-    row = cursor.fetchone()
+    if order_id is None and table_id is not None:
+        cursor.execute("""
+            SELECT order_id
+            FROM orders
+            WHERE table_id = %s AND status = 'PENDING'
+            ORDER BY order_time DESC
+            LIMIT 1
+        """, (table_id,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            return jsonify({"error": "no pending order for table"}), 404
 
+        order_id = row["order_id"]
+
+    if order_id is None:
+        cursor.close()
+        return jsonify({"error": "orderId or tableId required"}), 400
+
+    cursor.execute(
+        "SELECT table_id FROM orders WHERE order_id = %s",
+        (order_id,)
+    )
+    row = cursor.fetchone()
     if not row:
         cursor.close()
-        return jsonify({"error": "no pending order for table"}), 404
+        return jsonify({"error": "order not found"}), 404
 
-    order_id = row["order_id"]
+    table_id = row["table_id"]
 
-    # 2) odrzuć zamówienie
     cursor.execute(
-        "UPDATE orders SET status='REJECTED', employee_id=%s WHERE order_id=%s",
-        (employee_id, order_id)
+        "UPDATE orders SET status = 'REJECTED' WHERE order_id = %s",
+        (order_id,)
     )
-
-    # 3) zwolnij stolik
     cursor.execute(
-        "UPDATE pub_tables SET table_status='FREE' WHERE table_id=%s",
+        "UPDATE pub_tables SET table_status = 'FREE' WHERE table_id = %s",
         (table_id,)
     )
 
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({
-        "rejected": True,
-        "orderId": order_id,
-        "tableId": table_id
-    }), 200
+    socketio.emit(
+        "table_updated",
+        {
+            "table_id": table_id,
+            "table_status": "FREE",
+        },
+        namespace="/tables",
+    )
+
+    return jsonify({"rejected": True, "orderId": order_id}), 200
 
 @orders_bp.get("/client/status/<int:tableNumber>")
 @jwt_required(optional=True)  # klient bez logowania
