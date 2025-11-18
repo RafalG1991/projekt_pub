@@ -44,9 +44,9 @@ def open_client_order():
             "table_updated",
             {
                 "table_id": table_id,
+                "table_number": table_number,
                 "table_status": "PENDING",
             },
-            namespace="/tables",
         )
 
     return jsonify(payload), 201
@@ -159,7 +159,6 @@ def confirm_order():
             "table_number": table_number,
             "table_status": "BUSY",
         },
-        namespace="/tables",
     )
 
     return jsonify({"confirmed": True, "orderId": order_id}), 200
@@ -222,7 +221,6 @@ def reject_order():
             "table_id": table_id,
             "table_status": "FREE",
         },
-        namespace="/tables",
     )
 
     return jsonify({"rejected": True, "orderId": order_id}), 200

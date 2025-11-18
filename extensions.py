@@ -14,8 +14,7 @@ mysql = MySQL()
 jwt = JWTManager()
 mail = Mail()
 
-socketio = SocketIO(cors_allowed_origins="*")
-
+socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")
 
 def init_extensions(app: Flask):
     # --- CORS ---
@@ -90,5 +89,7 @@ def init_extensions(app: Flask):
     app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD") or None
     app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_SENDER", "no-reply@localhost")
     app.config["MAIL_SUPPRESS_SEND"] = os.getenv("MAIL_SUPPRESS_SEND", "false").lower() == "true"
+
+    socketio.init_app(app, cors_allowed_origins="*")
 
     mail.init_app(app)
