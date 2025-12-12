@@ -8,7 +8,7 @@ class Lounge():
         Zwraca wszystkie stoliki razem z informacją o lounge (jeśli chcemy).
         """
         cursor = mysql.connection.cursor()
-        # Pobierz stoliki oraz nazwę lounge (jeśli jest)
+        # Pobierz stoliki
         cursor.execute("""
             SELECT pt.table_id, pt.table_number, pt.capacity, pt.table_status, pl.lounge_id, pl.name AS lounge_name
             FROM pub_tables pt
@@ -68,4 +68,4 @@ class Lounge():
         cursor.execute("SELECT lounge_id, name FROM pub_lounge WHERE lounge_id = %s LIMIT 1;", (loungeId,))
         res = cursor.fetchone()
         cursor.close()
-        return res  # None albo (id, name)
+        return res

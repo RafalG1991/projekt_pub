@@ -10,13 +10,12 @@ orders_bp = Blueprint("orders", __name__, url_prefix="/order")
 @orders_bp.post("/open")
 @jwt_required()
 def open_order():
-    # JSON: { tableNumber: int, customersNumber: int , employeeId: int}
     data = request.get_json() or {}
     table_number = int(data.get("tableNumber", 0))
     customers = int(data.get("customersNumber", 0))
     employeeId = int(data.get("employeeId", 0))
 
-    ok, msg = Orders.openOrder(mysql, table_number, customers, employeeId)  # <-- nazwa i argumenty jak w Orders.py
+    ok, msg = Orders.openOrder(mysql, table_number, customers, employeeId) 
     return jsonify({"ok": bool(ok), "message": msg})
 
 @orders_bp.post("/client/open")
@@ -37,13 +36,12 @@ def open_client_order():
         if err == "table not found":
             return jsonify(payload), 404
         if err == "too many guests":
-            # 409 Conflict – biznesowo: nie spełnia warunków stolika
+            # 409 Conflict – nie spełnia warunków stolika
             return jsonify(payload), 409
 
         # inne błędy (table busy/pending itp.)
         return jsonify(payload), 409
 
-     # payload zawiera m.in. table_id i status='PENDING'
     table_id = payload.get("table_id")
 
     if table_id is not None:
@@ -61,24 +59,22 @@ def open_client_order():
 @orders_bp.post("/close")
 @jwt_required()
 def close_order():
-    # JSON: { tableNumber: int }
     data = request.get_json() or {}
     table_number = int(data.get("tableNumber", 0))
 
-    res = Orders.close_order(mysql, table_number)  # <-- dokładnie close_order(mysql, table_number)
-    # wg Twojego pliku zwraca dict; jeśli tuple, owiń w dict
+    res = Orders.close_order(mysql, table_number)
     return jsonify(res)
 
 @orders_bp.get("/show/<int:table_number>")
 @jwt_required(optional=True)
 def show_order(table_number: int):
-    res = Orders.show_order(mysql, table_number)  # <-- nazwa 1:1
+    res = Orders.show_order(mysql, table_number) 
     return jsonify(res)
 
 @orders_bp.get("/menu")
 @jwt_required(optional=True)
 def order_menu():
-    res = Orders.list_menu(mysql)  # <-- dokładnie list_menu(mysql)
+    res = Orders.list_menu(mysql) 
     return jsonify(res)
 
 @orders_bp.post("/add")
@@ -97,13 +93,12 @@ def add_item():
     if table_id is None or not choice or quantity is None:
         return jsonify({"added": "no", "error": "invalid payload"}), 400
 
-    result = Orders.add_product(mysql, choice, int(quantity), int(table_id))  # <-- dokładnie add_product(...)
-    # Twoja metoda zwraca "ok" / inne — dopasowujemy format do frontu
+    result = Orders.add_product(mysql, choice, int(quantity), int(table_id)) 
     return jsonify({"added": "ok" if result == "ok" else str(result)})
 
 
 @orders_bp.post("/confirm")
-@jwt_required()  # tylko zalogowana obsługa
+@jwt_required()  
 def confirm_order():
     data = request.get_json() or {}
     table_id = data.get("tableId")
@@ -158,7 +153,6 @@ def confirm_order():
     mysql.connection.commit()
     cursor.close()
 
-    # TU emit
     socketio.emit(
         "table_updated",
         {
@@ -233,7 +227,7 @@ def reject_order():
     return jsonify({"rejected": True, "orderId": order_id}), 200
 
 @orders_bp.get("/client/status/<int:tableNumber>")
-@jwt_required(optional=True)  # klient bez logowania
+@jwt_required(optional=True) 
 def client_order_status(tableNumber):
     cursor = mysql.connection.cursor()
     cursor.execute("""
@@ -253,7 +247,7 @@ def client_order_status(tableNumber):
     return jsonify({
         "hasOrder": True,
         "orderId": row["order_id"],
-        "status": row["status"],   # 'PENDING', 'OPEN', 'REJECTED', ...
+        "status": row["status"],  
     }), 200
 
 @orders_bp.post("/client/signal")
@@ -270,7 +264,6 @@ def client_signal():
     if not table_number or signal_type not in ("WAITER", "CUTLERY", "CLEANING"):
         return jsonify({"error": "invalid payload"}), 400
 
-    # znajdź table_id (potrzebne frontendowi)
     cursor = mysql.connection.cursor()
     cursor.execute(
         "SELECT table_id FROM pub_tables WHERE table_number=%s",
@@ -284,7 +277,6 @@ def client_signal():
 
     table_id = row["table_id"]
 
-    # wyślij lekki event przez socket
     socketio.emit(
         "table_signal",
         {

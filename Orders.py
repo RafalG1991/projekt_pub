@@ -151,7 +151,6 @@ class Orders:
 
         table_id = _col(t, "table_id", 0)
 
-        # Znajdź wszystkie OPEN orders dla stołu
         cursor.execute(
             "SELECT order_id FROM orders WHERE table_id=%s AND status='OPEN'",
             (table_id,)
@@ -230,7 +229,6 @@ class Orders:
         cursor.execute(query, (table_id,))
         rows = cursor.fetchall()
 
-        # Znormalizuj wynik do listy dictów (gdyby cursor był bez DictCursor)
         result = []
         for r in rows or []:
             result.append({
@@ -250,7 +248,6 @@ class Orders:
         cursor.execute("SELECT drink_id, drink_name, price, description FROM drinks;")
         rows = cursor.fetchall()
 
-        # Opcjonalnie znormalizuj na listę obiektów (przydatne dla frontu)
         result = []
         for r in rows or []:
             result.append({
@@ -275,7 +272,7 @@ class Orders:
 
         cursor = mysql.connection.cursor()
 
-        # 1) znajdź otwarte zamówienie dla table_id
+        # znajdź otwarte zamówienie dla table_id
         cursor.execute(
             "SELECT order_id FROM orders WHERE table_id=%s AND status='OPEN' ORDER BY order_time LIMIT 1",
             (table_id,)
@@ -287,7 +284,7 @@ class Orders:
 
         order_id = _col(order, "order_id", 0)
 
-        # 2) znajdź drink (po nazwie lub po id)
+        # znajdź drink (po nazwie lub po id)
         if isinstance(choice, int) or (isinstance(choice, str) and choice.isdigit()):
             cursor.execute(
                 "SELECT drink_id, drink_name, price FROM drinks WHERE drink_id=%s",
@@ -304,10 +301,10 @@ class Orders:
             return "error: drink not found"
 
         drink_id = _get(drink, "drink_id", 0)
-        drink_name = _get(drink, "drink_name", 1)  # może się przydać do logów
+        drink_name = _get(drink, "drink_name", 1) 
         drink_price = float(_get(drink, "price", 2) or 0)
 
-        # 3) pobierz wymagane składniki i porównaj ze stanem
+        # pobierz wymagane składniki i porównaj ze stanem magazynowym
         cursor.execute(
             """
             SELECT
@@ -331,7 +328,7 @@ class Orders:
                 name = _get(ingr, "ingredient_name", 1)
                 return f"error: ingredient {name} insufficient"
 
-        # 4) Zmniejsz stany składników
+        # Zmniejsz stany składników
         for ingr in ingredients or []:
             required = float(_get(ingr, "required_quantity", 2) or 0)
             ingr_id = _get(ingr, "ingredient_id", 0)
@@ -340,7 +337,7 @@ class Orders:
                 (required, ingr_id)
             )
 
-        # 4b) Po aktualizacji – sprawdź próg i ewentualnie powiadom adminów
+        # Po aktualizacji – sprawdź próg i ewentualnie powiadom przez emaila
         for ingr in ingredients or []:
             ingr_id = _get(ingr, "ingredient_id", 0)
             # pobierz bieżący stan i flagę
@@ -359,7 +356,7 @@ class Orders:
             already = int(_get(row, "low_stock_notified", 3) or 0)
 
             if qty < threshold and not already:
-                # zbierz e-maile adminów
+                # zbierz e-maile adminów (managerów)
                 cursor.execute("SELECT email FROM users WHERE role='admin' AND email IS NOT NULL")
                 admins = cursor.fetchall()
                 recipients = []
@@ -378,17 +375,16 @@ class Orders:
                     )
                     send_email(subject, recipients, body)
                 except Exception as e:
-                    # nie blokuj transakcji przez e-mail
                     print("MAIL ERROR:", e)
 
-                # ustaw flagę, aby nie spamować
+                # ustaw flagę, aby nie spamować mailami przy kolejnych zamówieniach
                 cursor.execute("""
                     UPDATE ingredients
                     SET low_stock_notified = 1, last_notified_at = NOW()
                     WHERE ingredient_id = %s
                 """, (ingr_id,))
 
-        # 5) Dodaj/aktualizuj pozycję zamówienia
+        # Dodaj/aktualizuj pozycję zamówienia
         cursor.execute(
             """
             INSERT INTO order_items (order_id, drink_id, quantity)

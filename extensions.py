@@ -24,7 +24,6 @@ def init_extensions(app: Flask):
         # CRA
         "http://localhost:3000", "http://127.0.0.1:3000",
     ]
-    # dodatkowo: pozwól ustawiać przez env (wiele, po przecinku)
     extra = os.getenv("FRONT_ORIGIN", "")
     if extra:
         allowed.extend([o.strip() for o in extra.split(",") if o.strip()])
@@ -32,7 +31,7 @@ def init_extensions(app: Flask):
     CORS(
         app,
         resources={r"/*": {"origins": allowed}},
-        supports_credentials=False,  # True tylko jeśli używasz cookies (httpOnly)
+        supports_credentials=False,  
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         max_age=86400,
@@ -70,7 +69,6 @@ def init_extensions(app: Flask):
     def _revoked(h, p):
         return jsonify({"msg": "token revoked"}), 401
 
-    # Blacklista JWT -> tabela jwt_blocklist (jti)
     @jwt.token_in_blocklist_loader
     def is_revoked(jwt_header, jwt_payload):
         jti = jwt_payload.get("jti")
@@ -80,7 +78,6 @@ def init_extensions(app: Flask):
         cur.close()
         return bool(row)
     
-    # --- MAIL ---
     app.config["MAIL_SERVER"]   = os.getenv("MAIL_SERVER", "127.0.0.1")
     app.config["MAIL_PORT"]     = int(os.getenv("MAIL_PORT", "2500"))
     app.config["MAIL_USE_TLS"]  = os.getenv("MAIL_USE_TLS", "false").lower() == "true"

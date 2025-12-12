@@ -3,28 +3,28 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from datetime import datetime, timedelta
 from extensions import mysql
-from authz import role_required     # <--- DODANE
+from authz import role_required     
 from Reports import Report
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/report")
 
 @reports_bp.get("/inventory")
 @jwt_required()
-@role_required("admin")             # <--- TYLKO ADMIN
+@role_required("admin")            
 def inventory():
     res = Report.inventory_report(mysql)
     return jsonify({"inventory": res})
 
 @reports_bp.get("/orders")
 @jwt_required()
-@role_required("admin")             # <--- TYLKO ADMIN
+@role_required("admin")             
 def orders_report():
     res = Report.orders_report(mysql)
     return jsonify({"orders": res})
 
 @reports_bp.post("/add")
 @jwt_required()
-@role_required("admin")             # <--- TYLKO ADMIN
+@role_required("admin")             
 def add_ingr():
     req = request.get_json() or {}
     ing_id = req.get("id")

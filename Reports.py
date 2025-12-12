@@ -48,7 +48,7 @@ class Report():
             cursor.close()
             return False
         cursor.execute("UPDATE ingredients SET stock_quantity = stock_quantity + %s WHERE ingredient_id = %s", (quantity, ingredient_id))
-        # po uzupełnieniu konkretnego składnika:
+        # po uzupełnieniu konkretnego składnika zmień flagę:
         cursor.execute("""
             UPDATE ingredients
             SET low_stock_notified = CASE WHEN stock_quantity >= reorder_level THEN 0 ELSE low_stock_notified END
@@ -61,7 +61,7 @@ class Report():
     @staticmethod
     def checkAllStocks(mysql):
         cursor = mysql.connection.cursor()
-        # weź wszystkie poniżej progu i nie zgłoszone
+        # wyfiltruj wszystkie poniżej progu i niezgłoszone 
         cursor.execute("""
             SELECT ingredient_id, ingredient_name, stock_quantity, reorder_level
             FROM ingredients
@@ -73,12 +73,12 @@ class Report():
             cursor.close()
             return {"ok": True, "notified": 0}
 
-        # zbierz adminów
+        # zbierz maile adminów - managerów
         cursor.execute("SELECT email FROM users WHERE role='admin' AND email IS NOT NULL")
         admins = cursor.fetchall()
         recipients = [ (a["email"] if isinstance(a, dict) else a[0]) for a in admins or [] ]
 
-        # wyślij zbiorczy mail
+        # wyślij zbiorczy mail do managerów
         lines = []
         ids = []
         for r in low:
@@ -96,7 +96,7 @@ class Report():
         except Exception as e:
             print("MAIL ERROR:", e)
 
-        # ustaw flagi, aby nie spamować
+        # ustaw flagi, aby nie spamować przy kolejnych sprawdzeniach
         if ids:
             fmt = ",".join(["%s"] * len(ids))
             cursor.execute(f"""

@@ -44,7 +44,7 @@ def getAvailableTabs(guests):
 def openNewOrder():
     request_json = request.get_json()
     tableNumber = request_json.get('tableNumber')
-    customersNumber = request_json.get('customersNumber')  # <--- nowy parametr
+    customersNumber = request_json.get('customersNumber') 
     success, msg = Orders.openOrder(mysql, tableNumber, customersNumber)
     status = "ok" if success else "error"
     return {
@@ -84,8 +84,8 @@ def showOrder(table):
 @cross_origin()
 def addToOrder():
     request_json = request.get_json()
-    table_id = request_json.get('id')         # expects table_id (primary key)
-    choice = request_json.get('choice')      # drink_name or drink_id (we treat as name)
+    table_id = request_json.get('id')         
+    choice = request_json.get('choice')      
     quantity = request_json.get('quantity')
     rv = Orders.add_product(mysql, choice, quantity, table_id)
     return {

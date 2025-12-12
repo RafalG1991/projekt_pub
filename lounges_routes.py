@@ -9,14 +9,14 @@ lounge_bp = Blueprint("lounge", __name__, url_prefix="/lounge")
 @lounge_bp.get("/tables")
 @jwt_required(optional=True)
 def tables():
-    data = Lounge.getTables(mysql)  # <-- nazwa 1:1
+    data = Lounge.getTables(mysql)  
     return jsonify({"tables": data})
 
 @lounge_bp.get("/tables/available")
 @jwt_required(optional=True)
 def available():
     guests = int(request.args.get("guests", 1))
-    data = Lounge.getAvailableTables(mysql, guests)  # <-- nazwa 1:1
+    data = Lounge.getAvailableTables(mysql, guests)  
     return jsonify({"tables": data})
 
 @lounge_bp.get('/areas')
