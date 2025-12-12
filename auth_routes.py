@@ -10,6 +10,11 @@ from extensions import mysql
 from mailer import send_email
 from tokens import generate_activation_token, expiry
 import os
+import re
+
+PASSWORD_REGEX = re.compile(
+    r"^(?=.*[0-9])(?=.*[!@#$%^&*(),.?\":{}|<>])[A-Za-z0-9!@#$%^&*(),.?\":{}|<>]{8,}$"
+)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -17,12 +22,20 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 def register():
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
-    password = data.get("password")  # zakładam że masz hashowanie gdzieś (bcrypt)
+    password = data.get("password")  
     name = (data.get("name") or "").strip()
-    role = "employee"  # lub wg formularza, ale zwykle pracę zaczyna się od 'employee'
+    role = "employee"  
 
     if not email or not password:
         return jsonify({"ok": False, "error": "invalid_payload"}), 400
+    
+    
+    if not PASSWORD_REGEX.match(password):
+        return jsonify({
+            "ok": False,
+            "error": "weak_password",
+            "message": "Password must be at least 8 characters long and include at least one number and one special character."
+        }), 400
 
     cur = mysql.connection.cursor()
     # sprawdź duplikat
@@ -31,7 +44,6 @@ def register():
         cur.close()
         return jsonify({"ok": False, "error": "email_in_use"}), 409
 
-    # TODO: zahashuj hasło (bcrypt/werkzeug.security)
     from werkzeug.security import generate_password_hash
     password_hash = generate_password_hash(password)
 
@@ -62,13 +74,13 @@ def register():
 
     return jsonify({"ok": True, "message": "activation_sent"}), 201
 
-# GET /auth/activate/<token> – backendowa aktywacja (link z maila może iść tu)
+# GET /auth/activate/<token> – backendowa aktywacja
 @auth_bp.get("/activate/<token>")
 def activate_with_path(token: str):
     return _activate_common(token)
 
 
-# GET /auth/activate – aktywacja przez ?token=...
+# GET /auth/activate – aktywacja przez ?token=
 @auth_bp.get("/activate")
 def activate_with_query():
     token = request.args.get("token", "")
@@ -93,7 +105,6 @@ def _activate_common(token: str):
     user_id = row["user_id"] if isinstance(row, dict) else row[0]
     expires = row["activation_expires"] if isinstance(row, dict) else row[1]
     if isinstance(expires, str):
-        # jeśli driver zwróci string
         try:
             expires = datetime.fromisoformat(expires)
         except Exception:
@@ -191,7 +202,6 @@ def login():
     if not active:
         return jsonify({"ok": False, "error": "account_inactive"}), 403
 
-    # (reszta – generowanie JWT – jak wcześniej po Waszych poprawkach)
     user_claims = {
         "email": u["email"] if isinstance(u, dict) else u[1],
         "role":  u["role"]  if isinstance(u, dict) else u[3],
@@ -209,7 +219,7 @@ def login():
 @auth_bp.post("/refresh")
 @jwt_required(refresh=True)
 def refresh():
-    claims = get_jwt()                      # <— pełne claims
+    claims = get_jwt()                      
     user_claims = {"email": claims.get("email"), "role": claims.get("role"), "name": claims.get("name")}
     access = create_access_token(identity=get_jwt_identity(), additional_claims=user_claims)
     return jsonify({"access_token": access})
@@ -230,7 +240,6 @@ def logout():
 @auth_bp.get("/me")
 @jwt_required()
 def me():
-    # identity to teraz string user_id, a szczegóły trzymamy w claims
     sub = get_jwt_identity()
     claims = get_jwt()
     return jsonify({
